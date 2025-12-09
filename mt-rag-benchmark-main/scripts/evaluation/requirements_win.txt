@@ -1,0 +1,14 @@
+numpy==1.26.4
+accelerate==1.4.0
+tqdm
+beautifulsoup4
+lxml
+pandas
+evaluate==0.4.3
+bert_score
+rouge-score
+protobuf==5.29.3
+ragas==0.1.5
+langchain==0.2.17
+langchain-community==0.2.19
+pydantic==2.7.4
