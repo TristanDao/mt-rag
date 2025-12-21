@@ -73,6 +73,22 @@ class VectorDatabase:
             raise ValueError(f"Unsupported DB: {db_type}")
 
     # ================================================================
+    #   CREATE COLLECTION IF NOT EXISTS
+    # ================================================================
+    def create_collection_if_not_exists(self, collection_name: str, vector_size: int = 384):
+        if self.db_type == "qdrant":
+            if not self.client.collection_exists(collection_name):
+                print(f"[VectorDB] Creating Qdrant collection: {collection_name} (size={vector_size})")
+                self.client.create_collection(
+                    collection_name=collection_name,
+                    vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
+                )
+        
+        elif self.db_type == "chromadb":
+            self.client.get_or_create_collection(collection_name)
+
+
+    # ================================================================
     #   INSERT DOCUMENTS
     # ================================================================
     def insert(self, data: List[Dict[str, Any]], collection_name: str):

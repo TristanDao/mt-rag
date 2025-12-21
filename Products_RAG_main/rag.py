@@ -15,6 +15,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+from Products_RAG_main.rerank import Reranker
+from Products_RAG_main import config
+
 class RAGSystem:
     def __init__(
             self,
@@ -27,7 +30,10 @@ class RAGSystem:
             routes: Optional[List[Route]] = None
     ):
         self.collection_name = collection_name
-
+        
+        # Load settings from config
+        self.rerank_config = config.RAG_CONFIG
+        
         # -------------------------------
         # Init Database
         # -------------------------------
@@ -44,6 +50,21 @@ class RAGSystem:
             model_name=embedding_model
         )
         print("[RAG] Embedding OK!")
+
+        # -------------------------------
+        # Init Reranker (Optional)
+        # -------------------------------
+        self.reranker = None
+        if self.rerank_config.get("use_reranker", False):
+            try:
+                print("[RAG] Initializing Reranker...")
+                self.reranker = Reranker(
+                    model_name=config.RERANK_CONFIG.get("model_name"),
+                    device=config.RERANK_CONFIG.get("device")
+                )
+                print("[RAG] Reranker OK!")
+            except Exception as e:
+                print(f"[RAG] ⚠️ Failed to load Reranker: {e}")
 
         # -------------------------------
         # Init LLM (OpenAI only for evaluator)
@@ -95,12 +116,25 @@ class RAGSystem:
     # ----------------------------------------------------------------------
 
     def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        # Check if rerank used
+        use_rerank = self.reranker is not None
+        
+        # Determine initial search k (candidates)
+        search_k = config.RERANK_CONFIG.get("rerank_top_k", 20) if use_rerank else top_k
+        
         query_embedding = self.embedding_model.encode_single(query)
-        return self.vector_db.query(
+        
+        results = self.vector_db.query(
             collection_name=self.collection_name,
             embedding_vector=query_embedding,
-            top_k=top_k
+            top_k=search_k
         )
+        
+        # Apply Reranker
+        if use_rerank:
+            results = self.reranker.rerank(query, results, top_k=top_k)
+            
+        return results
 
     # ----------------------------------------------------------------------
 

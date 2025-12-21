@@ -1,4 +1,29 @@
-venv/
-*/venv/
+# Python & Envs
 __pycache__/
 *.pyc
+venv/
+*/venv/
+.env
+*.log
+
+# Jupyter Notebooks
+*.ipynb_checkpoints/
+check_point.ipynb
+
+# Models & Weights
+models/
+*.bin
+*.pt
+*.pkl
+
+# Data & Cache
+.cache/
+*.zip
+
+# Specific Projects
+# Ignore corpora in benchmark
+mt-rag-benchmark-main/corpora/
+
+# OS
+.DS_Store
+Thumbs.db
