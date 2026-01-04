@@ -1,8 +1,12 @@
-from openai import OpenAI
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
+
 from sentence_transformers import SentenceTransformer
 import torch
 import os
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -119,3 +123,48 @@ class EmbeddingModel:
     def encode_single(self, text: str) -> List[float]:
         result = self.encode(text)
         return result[0] if result else []
+
+
+class SparseEmbeddingModel:
+    def __init__(self, provider: str = "fastembed", model_name: str = "Qdrant/bm25"):
+        self.provider = provider
+        self.model_name = model_name
+        
+        if self.provider == "fastembed":
+            try:
+                from fastembed import TextEmbedding
+                from fastembed import SparseTextEmbedding
+                
+                print(f"Loading Sparse Model: {self.model_name}")
+                # threads=1 to avoid issues in parallel execution if needed, but let's stick to default
+                self.model = SparseTextEmbedding(model_name=self.model_name)
+            except ImportError:
+                raise ImportError("Please install fastembed: pip install fastembed")
+        else:
+            raise ValueError(f"Unsupported sparse provider: {self.provider}")
+
+    def encode(self, texts: Union[str, List[str]]) -> List[Dict[str, Union[List[int], List[float]]]]:
+        """
+        Returns list of sparse vectors. 
+        Each sparse vector is usually a dict/object depending on library.
+        FastEmbed returns generator of SparseEmbedding (values, indices).
+        We convert it to Qdrant format: {"indices": [...], "values": [...]}
+        """
+        if isinstance(texts, str):
+            texts = [texts]
+            
+        results = []
+        # fastembed .embed() returns a generator
+        embeddings = self.model.embed(texts) 
+        
+        for sparse_vec in embeddings:
+            # sparse_vec has .indices and .values (numpy arrays)
+            results.append({
+                "indices": sparse_vec.indices.tolist(),
+                "values": sparse_vec.values.tolist()
+            })
+            
+        return results
+
+    def encode_single(self, text: str) -> Dict[str, Union[List[int], List[float]]]:
+        return self.encode(text)[0]

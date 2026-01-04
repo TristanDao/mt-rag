@@ -115,13 +115,14 @@ class RAGSystem:
 
     # ----------------------------------------------------------------------
 
-    def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    def retrieve(self, query: str) -> List[Dict[str, Any]]:
         # Check if rerank used
         use_rerank = self.reranker is not None
         
         # Determine initial search k (candidates)
-        search_k = config.RERANK_CONFIG.get("rerank_top_k", 20) if use_rerank else top_k
-        
+        search_k = config.RAG_CONFIG.get("top_k", 20)
+        final_top_k = config.RAG_CONFIG.get("top_k", 5)
+
         query_embedding = self.embedding_model.encode_single(query)
         
         results = self.vector_db.query(
@@ -132,7 +133,7 @@ class RAGSystem:
         
         # Apply Reranker
         if use_rerank:
-            results = self.reranker.rerank(query, results, top_k=top_k)
+            results = self.reranker.rerank(query, results, top_k=final_top_k)
             
         return results
 

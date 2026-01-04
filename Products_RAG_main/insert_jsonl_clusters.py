@@ -3,7 +3,7 @@ import uuid
 import pandas as pd
 from typing import Set
 
-from embedding import EmbeddingModel
+from embedding import EmbeddingModel, SparseEmbeddingModel
 from vector_db import VectorDatabase
 import config  # Import configuration
 
@@ -106,7 +106,7 @@ import concurrent.futures
 # ============================================================
 # 5. Xử lý 1 file → 1 collection (Parallel Batch Processing)
 # ============================================================
-def process_batch_worker(batch_records, embedding_model, vector_db, collection_name, batch_num, file_path):
+def process_batch_worker(batch_records, embedding_model, sparse_model, vector_db, collection_name, batch_num, file_path):
     """
     Worker function to process a single batch:
     1. Encode texts
@@ -119,6 +119,14 @@ def process_batch_worker(batch_records, embedding_model, vector_db, collection_n
         
         # 2. Batch Encode
         embeddings = embedding_model.encode(texts)
+        
+        # 2.1 Sparse Encode
+        sparse_embeddings = []
+        if sparse_model:
+            sparse_embeddings = sparse_model.encode(texts)
+        else:
+            # fill None
+            sparse_embeddings = [None] * len(texts)
         
         # 3. Construct Data Payload
         batch_data = []
@@ -135,6 +143,10 @@ def process_batch_worker(batch_records, embedding_model, vector_db, collection_n
                 }
             })
             
+            # Add sparse if available
+            if sparse_embeddings[j]:
+                batch_data[-1]["sparse_embedding"] = sparse_embeddings[j]
+            
         # 4. Insert Batch
         ok, err = insert_batch(vector_db, batch_data, collection_name)
         if ok:
@@ -146,7 +158,7 @@ def process_batch_worker(batch_records, embedding_model, vector_db, collection_n
         return False, f"Batch {batch_num} Exception: {str(e)}", batch_num
 
 
-def process_single_file(vector_db, embedding, file_path, collection_name, batch_size=256, max_workers=4):
+def process_single_file(vector_db, embedding, sparse_model, file_path, collection_name, batch_size=256, max_workers=4, reset_collection=False):
     print("\n" + "="*80)
     print(f"🚀 PROCESSING COLLECTION: {collection_name}")
     print(f"   Using {max_workers} worker threads")
@@ -154,6 +166,17 @@ def process_single_file(vector_db, embedding, file_path, collection_name, batch_
 
     # 1. Ensure collection exists
     vector_size = embedding.get_vector_size()
+    
+    if reset_collection:
+        # Check if exists via client directly or try/except
+        # Qdrant client usually exposed in vector_db.client
+        try:
+            if vector_db.client.collection_exists(collection_name):
+                print(f"⚠️ FORCE RESET: Deleting collection '{collection_name}'...")
+                vector_db.client.delete_collection(collection_name)
+        except Exception as e:
+            print(f"⚠️ Error checking/deleting collection: {e}")
+
     vector_db.create_collection_if_not_exists(collection_name, vector_size)
 
     try:
@@ -216,6 +239,7 @@ def process_single_file(vector_db, embedding, file_path, collection_name, batch_
                 process_batch_worker, 
                 batch, 
                 embedding, 
+                sparse_model,
                 vector_db, 
                 collection_name, 
                 num, 
@@ -264,10 +288,22 @@ def main():
     print(f"   Provider: {EMBEDDING_PROVIDER}")
     print(f"   Batch Size: {BATCH_SIZE}")
     print(f"   Workers: {MAX_WORKERS}")
+    
+    # ⚠️ IMPORTANT: Set this to True to delete old collection and re-create with new Schema (Dense + Sparse)
+    # Since we are upgrading schema, we MUST recreate.
+    RESET_COLLECTION = False
+    print(f"   Reset Collection: {RESET_COLLECTION}")
     print("==============================\n")
 
     vector_db = VectorDatabase(db_type=DB_TYPE)
     embedding = EmbeddingModel(provider=EMBEDDING_PROVIDER)
+    
+    # Initialize Sparse Model if config says so
+    sparse_model = None
+    if config.VECTOR_DB_CONFIG.get("sparse", False):
+         sparse_model_name = config.SPARSE_CONFIG.get("model", "Qdrant/bm25")
+         print(f"Initializing Sparse Model: {sparse_model_name}")
+         sparse_model = SparseEmbeddingModel(provider="fastembed", model_name=sparse_model_name)
 
     # Iterate over COLLECTION_MAPPING from config
     for key, info in config.COLLECTION_MAPPING.items():
@@ -283,10 +319,12 @@ def main():
         process_single_file(
             vector_db=vector_db,
             embedding=embedding,
+            sparse_model=sparse_model,
             file_path=file_path,
             collection_name=collection_name,
             batch_size=BATCH_SIZE,
-            max_workers=MAX_WORKERS
+            max_workers=MAX_WORKERS,
+            reset_collection=RESET_COLLECTION
         )
 
     print("\n🎉 DONE — ALL COLLECTIONS PROCESSED!\n")

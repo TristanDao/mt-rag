@@ -48,25 +48,31 @@ EMBEDDING_MODEL_CONFIG = {
 VECTOR_DB_CONFIG = {
     "type": "qdrant",  # "faiss", "chroma", "pinecone", "weaviate", etc.
     "dimension": 384,  # Phải khớp với embedding dimension
-    "index_type": "flat",  # "flat", "ivf", "hnsw" cho FAISS
+    "sparse": True,
+    # "index_type": "flat",  # "flat", "ivf", "hnsw" cho FAISS
     # "flat": Chính xác 100%, chậm với >100K docs (dùng cho <100K)
     # "ivf": Nhanh hơn, ~95-99% accuracy (khuyên dùng cho >100K docs, như ClapNQ)
     # "hnsw": Rất nhanh, ~90-98% accuracy (nhanh nhất nhưng trade-off accuracy)
     "metric": "cosine"  # "cosine", "l2", "ip"
 }
 
+SPARSE_CONFIG = {
+    "type" : "bm25",
+    "model" : "Qdrant/bm25"
+}
+
+
 # RAG System Settings
 RAG_CONFIG = {
-    "top_k": 5,                 # Số lượng kết quả cuối cùng lấy ra
+    "search_k": 30,             # Số lượng documents tìm kiếm từ Vector DB
+    "top_k": 10,                 # Số lượng kết quả cuối cùng trả về (top K final)
     "score_threshold": 0.0,
-    "use_reranker": True,       # Bật reranker
+    "use_reranker": False,       # Bật reranker
 }
 
 # Reranker Settings
 RERANK_CONFIG = {
     "model_name": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-    "top_k": 5,                 # Số lượng sau khi rerank (thường = RAG_CONFIG["top_k"])
-    "rerank_top_k": 10,         # Số lượng ứng viên lấy từ Vector DB để rerank (càng cao càng chính xác nhưng chậm)
     "batch_size": 32,
     "device": AUTO_DEVICE
 }

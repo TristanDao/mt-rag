@@ -12,7 +12,7 @@ from typing import List, Dict, Any
 # Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from Products_RAG_main.embedding import EmbeddingModel
+from Products_RAG_main.embedding import EmbeddingModel, SparseEmbeddingModel
 from Products_RAG_main.vector_db import VectorDatabase
 from Products_RAG_main.rerank import Reranker
 import Products_RAG_main.config as config
@@ -22,10 +22,11 @@ import Products_RAG_main.config as config
 # ============================================================================
 _vector_db = None
 _embedding_model = None
+_sparse_model = None
 _reranker = None
 
 def init_resources():
-    global _vector_db, _embedding_model, _reranker
+    global _vector_db, _embedding_model, _sparse_model, _reranker
     if _vector_db is None:
         print("Initializing Vector Database...")
         _vector_db = VectorDatabase(db_type=config.VECTOR_DB_CONFIG["type"])
@@ -34,6 +35,11 @@ def init_resources():
         print("Initializing Embedding Model...")
         _embedding_model = EmbeddingModel(provider=config.EMBEDDING_MODEL_CONFIG.get("provider", "huggingface"))
 
+    if _sparse_model is None and config.VECTOR_DB_CONFIG.get("sparse", False):
+        print("Initializing Sparse Model...")
+        sparse_model_name = config.SPARSE_CONFIG.get("model", "Qdrant/bm25")
+        _sparse_model = SparseEmbeddingModel(provider="fastembed", model_name=sparse_model_name)
+
     if _reranker is None and config.RAG_CONFIG.get("use_reranker", False):
         print("Initializing Reranker...")
         _reranker = Reranker(
@@ -41,25 +47,35 @@ def init_resources():
             device=config.RERANK_CONFIG.get("device")
         )
 
-def retrieve(query_text: str, collection_name: str, top_k: int = 5) -> List[Dict[str, Any]]:
+def retrieve(query_text: str, collection_name: str) -> List[Dict[str, Any]]:
     # Configuration
     use_rerank = config.RAG_CONFIG.get("use_reranker", False)
-    # If rerank is on, we fetch more candidates first
-    search_k = config.RERANK_CONFIG.get("rerank_top_k", 20) if use_rerank else top_k
+    
+    # Get params from config (user priority)
+    # search_k: số lượng doc lấy từ DB
+    search_k = config.RAG_CONFIG.get("search_k", 20)
+    # top_k: số lượng doc cuối cùng trả về (ghi đè tham số hàm nếu muốn config control hoàn toàn)
+    final_top_k = config.RAG_CONFIG.get("top_k", 5)
+
     
     # 1. Vector Search
     query_vector = _embedding_model.encode_single(query_text)
+    
+    sparse_vector = None
+    if _sparse_model:
+        sparse_vector = _sparse_model.encode_single(query_text)
     
     # We need to search with payload to get text for reranker
     results = _vector_db.query(
         collection_name=collection_name,
         embedding_vector=query_vector,
+        sparse_vector=sparse_vector,
         top_k=search_k
     )
     
     # 2. Rerank (Optional)
     if use_rerank and _reranker:
-        results = _reranker.rerank(query_text, results, top_k=top_k)
+        results = _reranker.rerank(query_text, results, top_k=final_top_k)
         
     # 3. Format results for evaluation
     formatted_results = []
@@ -146,7 +162,7 @@ def create_retrieval_input(
             if count % 100 == 0:
                 print(f"Processed {count}/{len(queries)}")
             
-            contexts = retrieve(query_text, collection_name, top_k)
+            contexts = retrieve(query_text, collection_name)
             
             json_obj = {
                 "task_id": query_id,
@@ -166,7 +182,6 @@ if __name__ == "__main__":
     parser.add_argument("--queries_file", type=str, required=True)
     parser.add_argument("--output_file", type=str, required=True)
     parser.add_argument("--collection", type=str, default="clapnq")
-    parser.add_argument("--top_k", type=int, default=10) # 10 is strict constraint from description
     
     args = parser.parse_args()
     
@@ -174,7 +189,6 @@ if __name__ == "__main__":
         queries_file=args.queries_file, 
         output_file=args.output_file, 
         collection_key=args.collection, 
-        top_k=args.top_k
     )
 
 
