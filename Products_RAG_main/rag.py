@@ -3,11 +3,12 @@ from typing import List, Dict, Any, Optional
 import os
 import sys
 from dotenv import load_dotenv
-from openai import OpenAI
+
+from openai import AzureOpenAI
 
 # =========================================================
 # PATH SETUP
-# Products_RAG-main/..  →  NLP_project (project root)
+# Products_RAG_main/.. -> PROJECT ROOT
 # =========================================================
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
@@ -16,14 +17,9 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 # =========================================================
-# SAFE IMPORTS (FILE NẰM Ở PROJECT ROOT)
+# SAFE IMPORTS (PROJECT ROOT)
 # =========================================================
 from response_generator import ResponseGenerator
-
-# Các module nội bộ trong Products_RAG-main
-from reflection import Reflection
-from semetic_router.route import Route, SemanticRouter
-from semetic_router.samples import chitchatSample, productsSample
 
 load_dotenv()
 
@@ -32,7 +28,7 @@ load_dotenv()
 # MODE
 # =========================================================
 class RAGMode(str, Enum):
-    ONLINE = "online"
+    ONLINE = "online"     # App / Streamlit
     OFFLINE = "offline"   # MT-RAG benchmark
 
 
@@ -42,116 +38,100 @@ class RAGMode(str, Enum):
 class RAGSystem:
     def __init__(
         self,
-        db_type: str = "mongodb",
+        use_vector_db: bool = False,
+        db_type: str = "qdrant",   # 👈 DEFAULT LÀ QDRANT
         embedding_provider: str = "huggingface",
+        embedding_model: Optional[str] = "sentence-transformers/all-MiniLM-L6-v2",
         llm_provider: str = "openai",
-        embedding_model: Optional[str] = None,
         llm_model: Optional[str] = None,
-        collection_name: str = "products",
-        routes: Optional[List[Route]] = None
+        collection_name: str = "mt-rag-clapnq-elser-512-100-20240503",
     ):
+        self.use_vector_db = use_vector_db
         self.collection_name = collection_name
 
         # =================================================
-        # OFFLINE / ONLINE SWITCH
+        # VECTOR DB + EMBEDDING (OPTIONAL)
         # =================================================
-        self.offline = os.getenv("RAG_OFFLINE_MODE") == "1"
+        if self.use_vector_db:
+            from Products_RAG_main.vector_db import VectorDatabase
+            from Products_RAG_main.embedding import EmbeddingModel
 
-        if self.offline:
-            print("[RAG] OFFLINE MODE: skip embedding & vector DB")
-            self.embedding_model = None
-            self.vector_db = None
-        else:
-            # ONLINE ONLY (không dùng trong MT-RAG benchmark)
-            from embedding import EmbeddingModel
-            from vector_db import VectorDatabase
+            print("[RAG] Initializing VectorDB (Qdrant) + Embedding")
 
-            print(f"[RAG] Initializing {db_type} database...")
             self.vector_db = VectorDatabase(db_type=db_type)
-            print("[RAG] Database OK!")
 
-            print(f"[RAG] Initializing embedding model: {embedding_provider}")
             self.embedding_model = EmbeddingModel(
                 provider=embedding_provider,
                 model_name=embedding_model
             )
-            print("[RAG] Embedding OK!")
+
+            self.vector_db.create_collection_if_not_exists(
+                collection_name=self.collection_name,
+                vector_size=self.embedding_model.vector_size
+            )
+
+        else:
+            self.vector_db = None
+            self.embedding_model = None
+            print("[RAG] VectorDB disabled (LLM-only mode)")
 
         # =================================================
-        # LLM
+        # LLM (AZURE OPENAI)
         # =================================================
         if llm_provider.lower() != "openai":
-            raise ValueError("Only OpenAI provider is supported")
+            raise ValueError("Only OpenAI/Azure OpenAI is supported")
 
-        self.llm_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.llm_model = llm_model or "gpt-4o-mini"
-        print("[RAG] LLM OpenAI OK!")
+        self.llm_client = AzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            api_version=os.getenv("OPENAI_API_VERSION"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        )
+
+        self.llm_model = llm_model or os.getenv("AZURE_OPENAI_DEPLOYMENT")
+
+        print("[RAG] LLM initialized")
 
         # =================================================
         # RESPONSE GENERATOR
         # =================================================
         self.response_generator = ResponseGenerator(
-            llm_client=self.llm_client,
-            model=self.llm_model
+            temperature=0.0,
+            max_tokens=800,
         )
 
-        # =================================================
-        # ROUTER + REFLECTION
-        # =================================================
-        self.reflection = Reflection(self.llm_client)
+        print("[RAG] System ready\n")
 
-        if routes and not self.offline:
-            self.router = SemanticRouter(self.embedding_model, routes)
-        else:
-            # OFFLINE: router disabled hoàn toàn
-            self.router = None
+    # =====================================================
+    # RETRIEVE (ONLINE + VECTOR DB)
+    # =====================================================
+    def retrieve(self, query: str, top_k: int = 5):
+        if not self.use_vector_db or self.vector_db is None:
+            return []
 
-        print("[RAG] System Ready!\n")
-
-    # ----------------------------------------------------------------------
-
-    def route_query(self, query: str, message: List[Dict]) -> tuple[str, str]:
-        if not self.router:
-            return "products", query
-
-        rewritten_query = self.reflection.rewrite(message, query)
-        print(f"[RAG] Rewritten query: {rewritten_query}")
-
-        best_route = self.router.guide(rewritten_query)[1]
-        print(f"[RAG] Semantic Route: {best_route}")
-
-        return best_route, rewritten_query
-
-    # ----------------------------------------------------------------------
-
-    def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        # Check if rerank used
-        use_rerank = self.reranker is not None
-        
-        # Determine initial search k (candidates)
-        search_k = config.RERANK_CONFIG.get("rerank_top_k", 20) if use_rerank else top_k
-        
         query_embedding = self.embedding_model.encode_single(query)
-        
-        results = self.vector_db.query(
+
+        return self.vector_db.query(
             collection_name=self.collection_name,
             embedding_vector=query_embedding,
-            top_k=search_k
+            top_k=top_k
         )
-        
-        # Apply Reranker
-        if use_rerank:
-            results = self.reranker.rerank(query, results, top_k=top_k)
-            
-        return results
 
-    # ----------------------------------------------------------------------
+    # =====================================================
+    # FORMAT CONTEXT
+    # =====================================================
+    def format_context(self, docs):
+        if not docs:
+            return ""
 
-    def format_context(self, results: List[Dict[str, Any]]) -> str:
-        return "\n".join(
-            f"Tài liệu {i+1}:\n{doc.get('text', '')}\n"
-            for i, doc in enumerate(docs)
-        )
+        chunks = []
+        for i, doc in enumerate(docs):
+            payload = doc.get("payload", {})
+            text = payload.get("text") or payload.get("content") or ""
+            if text:
+                chunks.append(f"Tài liệu {i+1}:\n{text}")
+
+        return "\n\n".join(chunks)
+
 
     # =====================================================
     # QUERY ENTRYPOINT
@@ -160,73 +140,76 @@ class RAGSystem:
         self,
         user_query: str,
         top_k: int = 5,
-        messages: Optional[List[Dict]] = None,
         mode: RAGMode = RAGMode.ONLINE,
-        provided_contexts: Optional[List[Dict]] = None
-    ):
-        if messages is None:
-            messages = [{"role": "system", "content": "You are a helpful assistant."}]
+        provided_contexts: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
 
-        # -----------------------------
-        # OFFLINE MODE (MT-RAG)
-        # -----------------------------
-        if mode == RAGMode.OFFLINE:
-            if not provided_contexts:
-                raise ValueError("OFFLINE mode requires provided_contexts")
+        # =================================================
+        # OFFLINE MODE (BENCHMARK)
+        # =================================================
+        # if mode == RAGMode.ONLINE:
+        #     docs = self.retrieve(user_query, top_k) if self.use_vector_db else []
+        #     context = self.format_context(docs)
 
-            context = self.format_context(provided_contexts)
+        #     answer = self.response_generator.generate(
+        #         prompt_type="standard" if self.use_vector_db else "free",
+        #         query=user_query,
+        #         context=context if self.use_vector_db else ""
+        #     )
 
-            answer = self.response_generator.generate(
-                prompt_type="standard",
+        #     return {
+        #         "answer": answer,
+        #         "context": context,
+        #         "documents": docs,
+        #         "mode": "online",
+        #     }
+
+        # =================================================
+        # ONLINE MODE
+        # =================================================
+        if mode == RAGMode.ONLINE:
+            if self.use_vector_db:
+                docs = self.retrieve(user_query, top_k=top_k)
+                context = self.format_context(docs)
+            else:
+                docs = []
+                context = ""
+            if self.vector_db is None:
+                answer = self.response_generator.generate(
+                prompt_type="free",
                 query=user_query,
-                context=context
-            )
+                context= ""
+                )
+            else:
+                answer = self.response_generator.generate(
+                    prompt_type="standard",
+                    query=user_query,
+                    context=context,
+                )
 
             return {
                 "answer": answer,
-                "query": user_query,
                 "context": context,
-                "mode": "offline"
+                "documents": docs,
+                "mode": "online",
             }
 
-        # -----------------------------
-        # ONLINE MODE (KHÔNG DÙNG TRONG BENCHMARK)
-        # -----------------------------
-        raise RuntimeError(
-            "ONLINE mode is disabled in MT-RAG benchmark execution"
-        )
+        raise ValueError(f"Unsupported RAG mode: {mode}")
 
 
 # =========================================================
-# DEV ENTRY (KHÔNG DÙNG TRONG BENCHMARK)
+# DEV ENTRY (OPTIONAL)
 # =========================================================
 def main():
-    routes = [
-        Route(name="products", samples=productsSample),
-        Route(name="chitchat", samples=chitchatSample),
-    ]
+    rag = RAGSystem(use_vector_db=False)
 
-    rag = RAGSystem(
-        db_type="mongodb",
-        embedding_provider="huggingface",
-        llm_provider="openai",
-        collection_name="products",
-        routes=routes,
-    )
-
-    print("\n=== Chat Mode ===\n")
-
-    messages = []
     while True:
-        user_input = input("You: ").strip()
-        if user_input.lower() in ("exit", "quit"):
+        q = input("You: ").strip()
+        if q.lower() in ("exit", "quit"):
             break
 
-        result = rag.query(user_input, messages=messages)
+        result = rag.query(q, mode=RAGMode.ONLINE)
         print("Assistant:", result["answer"])
-
-        messages.append({"role": "user", "content": user_input})
-        messages.append({"role": "assistant", "content": result["answer"]})
 
 
 if __name__ == "__main__":

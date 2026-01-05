@@ -173,9 +173,9 @@ def run_ragas_judges_local(judge_model, input_file, output_file):
 def run_ragas_judges_openai(input_file, output_file, openai_key, azure_host):
 
     llm = AzureChatOpenAI(
-        deployment_name="gpt-4o-mini-2024-07-18",
+        deployment_name="gpt-4o-mini",
         openai_api_base=azure_host,
-        openai_api_version="2024-09-01-preview",
+        openai_api_version="2024-05-01-preview",
         openai_api_key=openai_key, 
         timeout=120 
     )
@@ -241,14 +241,14 @@ def run_radbench_judge(judge_model, input_file, output_file):
     user_inputs = format_conversation_radbench(model_predictions)
     
     if judge_model == "openai":
-        model_name_lst = ['gpt-4o-mini-2024-07-18']
+        model_name_lst = ['gpt-4o-mini']
     else:
         model_name_lst = [judge_model]
     
     for model_name in model_name_lst:
         
         if model_name.startswith("gpt-"):
-            client = AzureOpenAIClient('gpt-4o-mini-2024-07-18')
+            client = AzureOpenAIClient('gpt-4o-mini')
         else:
             clear_cuda()
             client = HuggingFaceLLMClient(model_name)
@@ -285,7 +285,7 @@ def run_radbench_judge(judge_model, input_file, output_file):
 def run_idk_judge(model_name, input_file, output_file):    
     
     if model_name == "openai":
-        client = AzureOpenAIClient('gpt-4o-mini-2024-07-18')
+        client = AzureOpenAIClient('gpt-4o-mini')
     else:
         clear_cuda()
         client = HuggingFaceLLMClient(model_name)

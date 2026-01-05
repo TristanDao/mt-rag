@@ -42,9 +42,11 @@ pip install -r scripts/evaluation/requirements_win.txt
 Bạn đã chạy được:
 
 python scripts/evaluation/generate_with_rag.py `
-  --input human/generation_tasks/RAG.jsonl `
-  --output predictions.jsonl `
-  --limit 1
+--input C:\Users\Admin\Desktop\code\Final\mt-rag\mt-rag-benchmark-main\human\generation_tasks\RAG.jsonl ` 
+--output predictions\clapnq_test.jsonl `
+--collection clapnq `
+--limit 10
+
 
 
 File output đúng chuẩn phải có format như:
@@ -75,13 +77,13 @@ Bạn phải dùng backtick (`)
 Ví dụ:
 
 python scripts/evaluation/run_generation_eval.py `
-  -i predictions.jsonl `
-  -o outputs/rag_eval_output.jsonl `
+  -i predictions\clapnq_test.jsonl `
+  -o outputs\rag_eval_output.jsonl `
   -e scripts/evaluation/config.yaml `
   --provider openai `
-  --judge_model gpt-4o-mini `
-  --openai_key "<YOUR_KEY>" `
-  --azure_host "https://<your-resource>.cognitiveservices.azure.com/"
+  --openai_key "KEY_CUA_BAN" `
+  --azure_host "https://25210008-3958-resource.cognitiveservices.azure.com"
+
 
 ⚠ LƯU Ý BẢO MẬT
 

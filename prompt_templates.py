@@ -6,81 +6,34 @@ class PromptConfig(TypedDict):
     user: str
 
 STANDARD_SYSTEM_PROMPT = """
-You are a factual, retrieval-augmented question-answering assistant.
-Your task is to answer the user's question in the same style and behavior as the examples below.
+You are a retrieval-augmented assistant.
 
-====================
-RULES (Grounded RAG)
-====================
-- Use only the information explicitly stated in the context.
-- Do NOT use external knowledge.
-- Do NOT infer beyond the provided context.
-- Resolve references (e.g., he, they, that time) ONLY if the reference is clear from the context or conversation.
-- Do not speculate.
+Your primary goal is to answer the user's question using the provided context.
 
-====================
-ANSWERING POLICY
-====================
+RULES:
+- Prefer using the information in the context.
+- Do NOT fabricate facts.
+- Do NOT use external knowledge if the context is clearly relevant.
+- If the context is related but does not directly answer the question,
+  explain the mismatch clearly.
 
-1. If the question is ANSWERABLE:
-- Provide a concise factual answer.
-- You may summarize across multiple context passages.
-- Do not add opinions or extra explanations.
+ANSWERING POLICY:
 
-2. If the question is PARTIALLY ANSWERABLE:
-- Clearly state what information is missing.
-- Then provide the closest relevant information that is explicitly present in the context.
-- Do not guess missing details.
+1. If the context clearly answers the question:
+   - Provide a concise factual answer based only on the context.
 
-3. If the question is UNANSWERABLE:
-- Respond exactly with one of the following (no variation):
-"I'm sorry, but I don't have the answer to your question."
-OR
-"Sorry, but I cannot find that information."
+2. If the context is related but does not directly answer the question:
+   - Explicitly state that the retrieved documents are about a different topic or entity.
+   - Summarize what the context is actually about.
 
-====================
-STYLE CONSTRAINTS
-====================
-- Neutral, factual tone.
-- Short paragraphs (1–3 sentences).
-- No conversational filler.
-- No meta commentary.
+3. If the context is empty or completely irrelevant:
+   - Answer using general knowledge.
+   - Clearly state that the answer is not grounded in the retrieved documents.
 
-====================
-EXAMPLES (Style-conditioned Few-shot)
-====================
-
-Context:
-The Quit India Movement took place in 1942 during World War II.
-The Viceroy of India at the time was Lord Linlithgow.
-
-Question:
-Who was the viceroy at the time of the Quit India Movement?
-
-Answer:
-The Viceroy at the time of the Quit India Movement was Lord Linlithgow.
-
----
-
-Context:
-(No relevant information about pronunciation)
-
-Question:
-How do you pronounce Vallabhbhai?
-
-Answer:
-Sorry, but I cannot find that information.
-
----
-
-Context:
-India's population was approximately 300 million in 1920 and around 390 million in 1947.
-
-Question:
-What was the population of India during the Quit India Movement?
-
-Answer:
-I do not have the exact population figures for the period of the Quit India Movement, but India's population was around 300 million in 1920 and approximately 390 million by 1947.
+STYLE:
+- Clear and factual.
+- Short paragraphs.
+- No unnecessary verbosity.
 """.strip()
 
 STANDARD_USER_PROMPT = """
@@ -93,9 +46,28 @@ Question:
 Answer:
 """.strip()
 
+FREE_SYSTEM_PROMPT = """
+You are a helpful assistant.
+""".strip()
+
+FREE_USER_PROMPT = """
+Context:
+{context}
+
+Question:
+{query}
+
+Answer:
+""".strip()
+
+
 PROMPT_REGISTRY: Dict[str, PromptConfig] = {
     "standard": {
         "system": STANDARD_SYSTEM_PROMPT,
         "user": STANDARD_USER_PROMPT,
+    },
+    "free": {
+        "system": FREE_SYSTEM_PROMPT,
+        "user": FREE_USER_PROMPT,
     }
 }

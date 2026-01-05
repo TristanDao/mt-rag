@@ -29,13 +29,13 @@ BENCHMARK_ROOT = os.path.abspath(
     os.path.join(CURRENT_DIR, "..", "..")
 )
 
-# mt-rag-benchmark-main -> NLP_project
+# mt-rag-benchmark-main -> PROJECT ROOT
 PROJECT_ROOT = os.path.abspath(
     os.path.join(BENCHMARK_ROOT, "..")
 )
 
-# NLP_project -> Products_RAG-main  (CHỈ DÙNG BẢN NÀY)
-RAG_DIR = os.path.join(PROJECT_ROOT, "Products_RAG-main")
+# PROJECT ROOT -> Products_RAG_main
+RAG_DIR = os.path.join(PROJECT_ROOT, "Products_RAG_main")
 
 print("[DEBUG] PROJECT_ROOT =", PROJECT_ROOT)
 print("[DEBUG] RAG_DIR      =", RAG_DIR)
@@ -51,7 +51,7 @@ if RAG_DIR not in sys.path:
     sys.path.insert(0, RAG_DIR)
 
 # =========================================================
-# SAFE LOAD rag.py (NO `import rag`)
+# SAFE LOAD rag.py (KHÔNG dùng import rag)
 # =========================================================
 spec = importlib.util.spec_from_file_location("rag", rag_path)
 rag_module = importlib.util.module_from_spec(spec)
@@ -65,12 +65,11 @@ print("[DEBUG] Loaded RAGSystem & RAGMode successfully")
 # =========================================================
 # HELPERS
 # =========================================================
-def load_tasks(path, limit=None):
+def load_tasks(path):
+    """Load toàn bộ tasks từ file jsonl"""
     tasks = []
     with open(path, "r", encoding="utf-8") as f:
-        for i, line in enumerate(f):
-            if limit and i >= limit:
-                break
+        for line in f:
             tasks.append(json.loads(line))
     return tasks
 
@@ -81,13 +80,24 @@ def generate_with_your_model(prompt, contexts, rag):
     - Không rewrite
     - Không retrieve
     - Không embedding
+    - LUÔN trả về string
     """
     result = rag.query(
         user_query=prompt,
         mode=RAGMode.OFFLINE,
         provided_contexts=contexts
     )
-    return result["answer"]
+
+    answer = result.get("answer")
+
+    if answer is None:
+        return ""
+
+    if not isinstance(answer, str):
+        return str(answer)
+
+    return answer.strip()
+
 
 
 # =========================================================
@@ -112,10 +122,24 @@ def main():
 
     target_collection_name = COLLECTION_MAPPING[args.collection]
 
+    # -----------------------------------------------------
+    # 1️⃣ LOAD ALL TASKS
+    # -----------------------------------------------------
+    all_tasks = load_tasks(args.input)
+
+    # -----------------------------------------------------
+    # 2️⃣ FILTER BY COLLECTION
+    # -----------------------------------------------------
     tasks = [
-        t for t in load_tasks(args.input, args.limit)
+        t for t in all_tasks
         if t.get("Collection") == target_collection_name
     ]
+
+    # -----------------------------------------------------
+    # 3️⃣ APPLY LIMIT AFTER FILTER (QUAN TRỌNG)
+    # -----------------------------------------------------
+    if args.limit:
+        tasks = tasks[:args.limit]
 
     print(f"[INFO] Running collection = {args.collection}")
     print(f"[INFO] Matched tasks     = {len(tasks)}")
@@ -124,6 +148,7 @@ def main():
 
     for idx, task in enumerate(tasks, start=1):
         print(f"[RUNNING] {idx}/{len(tasks)}: {task['task_id']}")
+
         prompt = task["input"][-1]["text"]
         contexts = task["contexts"]
 

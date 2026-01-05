@@ -1,34 +1,62 @@
 from typing import List, Dict
 
+
 class Reflection:
-    def __init__(self, llm_client):
+    def __init__(self, llm_client, llm_model: str):
         self.llm_client = llm_client
+        self.llm_model = llm_model
 
-    def rewrite(self, messages: List[Dict], current_query: str) ->str:
-        chat_history = [mes for mes in messages if mes['role'] in ('user', 'assistant')][-10:]
-        history_text = ""
-        for mes in chat_history:
-            role = 'Người dùng' if mes['role'] == "user" else "Trợ lý"
-            history_text += f"{role}: {mes['content']}\n"
-        history_text += f"Khách: {current_query}\n"
+    def rewrite(self, messages: List[Dict], current_query: str) -> str:
+        """
+        Rewrite the current user query into a standalone question
+        that fully captures the conversational context.
+        """
 
-        prompt = [
-            {
-                "role": "system",
-                "content": (
-                    "Dưới đây là lịch sử hội thoại và câu hỏi mới nhất của người dùng."
-                    "Hãy viết lại câu hỏi sao cho nó trở thành một câu hỏi độc lập, "
-                    "có thể hiểu được mà không cần tham chiếu đến ngữ cảnh trước đó. "
-                    "Không trả lời câu hỏi. Chỉ trả về cau hỏi được viết lại."
+        system_prompt = """You are a query rewriting assistant.
+
+Your task is to rewrite the user's latest question into a standalone,
+self-contained question that can be understood without the prior conversation.
+
+Rules:
+- Do NOT answer the question.
+- Do NOT add new information.
+- Preserve the user's original intent.
+- If the question asks to elaborate (e.g. "nói thêm", "tell me more", "why"),
+  expand it based on the immediately preceding topic.
+- If the question is already self-contained, return it unchanged.
+"""
+
+        prompt_messages = [{"role": "system", "content": system_prompt}]
+
+        # Include last N turns as context
+        for msg in messages[-6:]:
+            if msg["role"] in ("user", "assistant"):
+                prompt_messages.append(
+                    {
+                        "role": msg["role"],
+                        "content": msg["content"]
+                    }
                 )
-            },
-            {"role": "user", "content": history_text}
-        ]
-        response = self.llm_client.chat.completions.create(
-            model ="gpt-4o-mini",
-            messages = prompt,
-            temperature = 0
+
+        # Latest user query (explicit)
+        prompt_messages.append(
+            {
+                "role": "user",
+                "content": current_query
+            }
         )
-        rewrite = response.choices[0].message.content.strip()
-        print(f"Câu hỏi được viết lại: {rewrite}")
-        return rewrite
+
+        response = self.llm_client.chat.completions.create(
+            model=self.llm_model,
+            messages=prompt_messages,
+            temperature=0.0,
+            max_tokens=120,
+        )
+
+        rewritten = response.choices[0].message.content.strip()
+
+        # Fallback safety
+        if not rewritten or len(rewritten) < 5:
+            return current_query
+
+        return rewritten

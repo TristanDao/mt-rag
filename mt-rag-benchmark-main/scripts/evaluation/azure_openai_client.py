@@ -33,7 +33,7 @@ class AzureOpenAIClient():
         self.client = AzureOpenAI(
             azure_endpoint = AZURE_ENDPOINT, 
             api_key = AZURE_OPENAI_API_KEY,  
-            api_version = "2024-09-01-preview"
+            api_version = "2024-05-01-preview"
         )
 
         self.model_id = model_id
@@ -91,7 +91,7 @@ class AzureOpenAIClient():
 
 if __name__ == "__main__":
     
-    model_id = 'gpt-4o-mini-2024-07-18'
+    model_id = 'gpt-4o-mini'
     client = AzureOpenAIClient(model_id)
 
     system_input = "You are a helpful assistant."
