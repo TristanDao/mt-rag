@@ -33,19 +33,26 @@ class RAGMode(str, Enum):
 
 
 # =========================================================
-# RAG SYSTEM
+# RAG SYSTEM (CORE – STATELESS)
 # =========================================================
 class RAGSystem:
     def __init__(
         self,
         use_vector_db: bool = False,
-        db_type: str = "qdrant",   # 👈 DEFAULT LÀ QDRANT
+        db_type: str = "qdrant",
         embedding_provider: str = "huggingface",
         embedding_model: Optional[str] = "sentence-transformers/all-MiniLM-L6-v2",
         llm_provider: str = "openai",
         llm_model: Optional[str] = None,
-        collection_name: str = "mt-rag-clapnq-elser-512-100-20240503",
+        collection_name: Optional[str] = None,   # ✅ KHÔNG HARD-CODE
     ):
+        """
+        RAG core system.
+        - KHÔNG quyết định collection
+        - KHÔNG routing
+        - KHÔNG reflection
+        """
+
         self.use_vector_db = use_vector_db
         self.collection_name = collection_name
 
@@ -56,7 +63,7 @@ class RAGSystem:
             from Products_RAG_main.vector_db import VectorDatabase
             from Products_RAG_main.embedding import EmbeddingModel
 
-            print("[RAG] Initializing VectorDB (Qdrant) + Embedding")
+            print("[RAG] Initializing VectorDB + Embedding")
 
             self.vector_db = VectorDatabase(db_type=db_type)
 
@@ -65,11 +72,12 @@ class RAGSystem:
                 model_name=embedding_model
             )
 
-            self.vector_db.create_collection_if_not_exists(
-                collection_name=self.collection_name,
-                vector_size=self.embedding_model.vector_size
-            )
-
+            # ❗ Không tạo collection nếu chưa được set từ ngoài
+            if self.collection_name:
+                self.vector_db.create_collection_if_not_exists(
+                    collection_name=self.collection_name,
+                    vector_size=self.embedding_model.get_vector_size()
+                )
         else:
             self.vector_db = None
             self.embedding_model = None
@@ -104,8 +112,12 @@ class RAGSystem:
     # =====================================================
     # RETRIEVE (ONLINE + VECTOR DB)
     # =====================================================
-    def retrieve(self, query: str, top_k: int = 5):
-        if not self.use_vector_db or self.vector_db is None:
+    def retrieve(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        if (
+            not self.use_vector_db
+            or self.vector_db is None
+            or not self.collection_name
+        ):
             return []
 
         query_embedding = self.embedding_model.encode_single(query)
@@ -119,7 +131,7 @@ class RAGSystem:
     # =====================================================
     # FORMAT CONTEXT
     # =====================================================
-    def format_context(self, docs):
+    def format_context(self, docs: List[Dict[str, Any]]) -> str:
         if not docs:
             return ""
 
@@ -128,10 +140,9 @@ class RAGSystem:
             payload = doc.get("payload", {})
             text = payload.get("text") or payload.get("content") or ""
             if text:
-                chunks.append(f"Tài liệu {i+1}:\n{text}")
+                chunks.append(f"Tài liệu {i + 1}:\n{text}")
 
         return "\n\n".join(chunks)
-
 
     # =====================================================
     # QUERY ENTRYPOINT
@@ -147,45 +158,43 @@ class RAGSystem:
         # =================================================
         # OFFLINE MODE (BENCHMARK)
         # =================================================
-        # if mode == RAGMode.ONLINE:
-        #     docs = self.retrieve(user_query, top_k) if self.use_vector_db else []
-        #     context = self.format_context(docs)
+        if mode == RAGMode.OFFLINE:
+            if not provided_contexts:
+                raise ValueError("OFFLINE mode requires provided_contexts")
 
-        #     answer = self.response_generator.generate(
-        #         prompt_type="standard" if self.use_vector_db else "free",
-        #         query=user_query,
-        #         context=context if self.use_vector_db else ""
-        #     )
+            context = self.format_context(provided_contexts)
 
-        #     return {
-        #         "answer": answer,
-        #         "context": context,
-        #         "documents": docs,
-        #         "mode": "online",
-        #     }
+            answer = self.response_generator.generate(
+                prompt_type="standard",
+                query=user_query,
+                context=context,
+            )
+
+            return {
+                "answer": answer,
+                "context": context,
+                "documents": provided_contexts,
+                "mode": "offline",
+            }
 
         # =================================================
         # ONLINE MODE
         # =================================================
         if mode == RAGMode.ONLINE:
-            if self.use_vector_db:
-                docs = self.retrieve(user_query, top_k=top_k)
-                context = self.format_context(docs)
-            else:
-                docs = []
-                context = ""
-            if self.vector_db is None:
-                answer = self.response_generator.generate(
-                prompt_type="free",
+            docs = self.retrieve(user_query, top_k=top_k)
+            context = self.format_context(docs)
+
+            prompt_type = (
+                "standard"
+                if self.use_vector_db and context
+                else "free"
+            )
+
+            answer = self.response_generator.generate(
+                prompt_type=prompt_type,
                 query=user_query,
-                context= ""
-                )
-            else:
-                answer = self.response_generator.generate(
-                    prompt_type="standard",
-                    query=user_query,
-                    context=context,
-                )
+                context=context if prompt_type == "standard" else "",
+            )
 
             return {
                 "answer": answer,
