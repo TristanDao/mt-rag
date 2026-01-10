@@ -2,9 +2,18 @@ import re
 import streamlit as st
 from typing import List, Dict
 
+
 from Products_RAG_main.rag import RAGSystem
 from Products_RAG_main.rerank import Reranker
 from Products_RAG_main.reflection import Reflection
+from Products_RAG_main.semetic_router.route import SemanticRouteDecision
+
+
+@st.cache_resource
+def init_semantic_router():
+    return SemanticRouteDecision(threshold=0.50)
+
+semantic_router = init_semantic_router()
 
 
 # =========================================================
@@ -32,10 +41,7 @@ st.set_page_config(
 # =========================================================
 st.sidebar.title("⚙️ Configuration")
 
-use_vector_db = st.sidebar.checkbox(
-    "Enable Retrieval (Qdrant)",
-    value=True
-)
+use_vector_db = True
 
 top_k = st.sidebar.slider(
     "Final Top-K documents",
@@ -84,11 +90,15 @@ if "conversation_state" not in st.session_state:
         "stance": None,     # neutral / negative / positive
     }
 
-if "user_facts" not in st.session_state:
-    st.session_state.user_facts = {
-        "name": None
-    }
-
+# if "user_facts" not in st.session_state:
+#     st.session_state.user_facts = {
+#         "name": None
+#     }
+def format_history(messages, max_turns=4):
+    return "\n".join(
+        f"{m['role'].upper()}: {m['content']}"
+        for m in messages[-max_turns:]
+    )
 
 # =========================================================
 # UTTERANCE INTERPRETER (INTENT / STANCE)
@@ -126,19 +136,19 @@ def interpret_utterance(text: str) -> Dict:
 
 # =========================================================
 # FACT EXTRACTION (NAME ONLY – EXPLICIT FACT)
-# =========================================================
-def extract_user_facts(text: str):
-    """
-    Extract explicit, high-confidence user facts.
-    This runs BEFORE Reflection.
-    """
-    match = re.search(
-        r"(tôi\s+(tên|là))\s+([A-Za-zÀ-ỹ]+)",
-        text,
-        re.IGNORECASE
-    )
-    if match:
-        st.session_state.user_facts["name"] = match.group(3)
+# # =========================================================
+# def extract_user_facts(text: str):
+#     """
+#     Extract explicit, high-confidence user facts.
+#     This runs BEFORE Reflection.
+#     """
+#     match = re.search(
+#         r"(tôi\s+(tên|là))\s+([A-Za-zÀ-ỹ]+)",
+#         text,
+#         re.IGNORECASE
+#     )
+#     if match:
+#         st.session_state.user_facts["name"] = match.group(3)
 
 
 # =========================================================
@@ -161,10 +171,10 @@ for msg in st.session_state.messages:
 user_input = st.chat_input("Ask something...")
 
 if user_input:
-    # =====================================================
-    # 0️⃣ FACT EXTRACTION (MUST RUN FIRST)
-    # =====================================================
-    extract_user_facts(user_input)
+    # # =====================================================
+    # # 0️⃣ FACT EXTRACTION (MUST RUN FIRST)
+    # # =====================================================
+    # extract_user_facts(user_input)
 
     # =====================================================
     # 1️⃣ INTERPRET UTTERANCE → UPDATE STATE
@@ -182,6 +192,17 @@ if user_input:
         messages=history,
         current_query=user_input
     )
+
+    route_decision = semantic_router.decide(rewritten_query)
+
+    use_retrieval = route_decision["use_retrieval"]
+    similarity_score = route_decision["similarity"]
+
+    st.caption(
+    f"{similarity_score:.2f} → "
+    f"{'NO RETRIEVAL' if not use_retrieval else 'USE RETRIEVAL'}"
+)
+
 
     # =====================================================
     # 3️⃣ APPEND USER MESSAGE
@@ -201,7 +222,7 @@ if user_input:
     # =====================================================
     all_docs: List[Dict] = []
 
-    if use_vector_db:
+    if use_vector_db and use_retrieval:
         for key, collection in COLLECTION_MAPPING.items():
             rag.collection_name = collection
             docs = rag.retrieve(rewritten_query, top_k=per_collection_k)
@@ -227,28 +248,32 @@ if user_input:
     # =====================================================
     # 6️⃣ FORMAT CONTEXT
     # =====================================================
-    context = rag.format_context(reranked_docs)
+    context = (
+        rag.format_context(reranked_docs)
+        if use_vector_db and use_retrieval and reranked_docs
+        else ""
+    )
 
     # =====================================================
     # 7️⃣ ANSWER GENERATION (STATE + FACT AWARE)
     # =====================================================
     intent = st.session_state.conversation_state["intent"]
     stance = st.session_state.conversation_state["stance"]
-    name = st.session_state.user_facts.get("name")
+    # name = st.session_state.user_facts.get("name")
 
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             answer = rag.response_generator.generate(
-                prompt_type="standard" if use_vector_db and context else "free",
+                prompt_type="standard" if use_vector_db and use_retrieval and context else "free",
                 query=f"""
-User facts:
-- Name: {name}
-
 Conversation intent: {intent}
 User stance: {stance}
 
 User query:
 {rewritten_query}
+
+Historical facts about the user:
+{format_history(st.session_state.messages)}
 """.strip(),
                 context=context if use_vector_db else ""
             )

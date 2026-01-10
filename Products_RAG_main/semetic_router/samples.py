@@ -1,22 +1,3 @@
-#Prompt để tạo data sample hỏi về products
-"""
-Bạn là trợ lý AI tạo dữ liệu hội thoại.  
-Hãy tạo 100 câu hỏi hoặc câu nói của người dùng liên quan đến sản phẩm điện thoại,  
-bao gồm các chủ đề sau:
-- Hỏi giá sản phẩm
-- Hỏi tình trạng còn hàng
-- Hỏi màu sắc, dung lượng, phiên bản
-- So sánh giữa các mẫu
-- Hỏi chương trình khuyến mãi hoặc ưu đãi
-- Hỏi thời gian bảo hành
-- Hỏi đề xuất mua sản phẩm
-
-Yêu cầu:
-- Câu nói tự nhiên, giống người Việt Nam nói thật.
-- Dạng câu nên đa dạng (ngắn, dài, thân mật, nghiêm túc...).
-- Tránh lặp lại cấu trúc “Bạn có ... không?” quá nhiều.
-- Kết quả trả về là một danh sách Python tên `productsSample = [...]`
-"""
 #Prompt để tạo data sample trò chuyện
 """
 Bạn là trợ lý AI tạo dữ liệu hội thoại tự nhiên.  
@@ -36,109 +17,13 @@ Yêu cầu:
 - Kết quả trả về là một danh sách Python tên `chitchatSample = [...]`
 
 """
-productsSample = [
-    "Cho tôi hỏi giá của iPhone 15 Pro Max hiện nay là bao nhiêu?",
-    "Cửa hàng còn hàng Samsung Galaxy S24 Ultra không vậy?",
-    "Máy Oppo Reno 10 có bản màu tím không?",
-    "Giữa iPhone 13 và iPhone 14 thì nên mua cái nào?",
-    "Hiện tại có chương trình khuyến mãi nào cho iPhone 15 không?",
-    "Thời gian bảo hành của Samsung A55 là bao lâu vậy bạn?",
-    "Mình đang tìm điện thoại pin trâu, bạn gợi ý giúp được không?",
-    "iPhone 14 Pro có phiên bản dung lượng 1TB không vậy?",
-    "Máy Xiaomi 14 còn hàng ở chi nhánh TP.HCM không bạn?",
-    "Có chương trình giảm giá nào cho khách hàng cũ không?",
-    "Samsung Galaxy Z Flip 6 hiện có bao nhiêu màu?",
-    "Bạn có thể cho mình biết giá của Realme GT Neo 5 không?",
-    "Tôi đang phân vân giữa iPhone 14 và Samsung S23, bạn thấy nên chọn cái nào?",
-    "OnePlus 12 có hỗ trợ sạc nhanh 100W không?",
-    "Cửa hàng có thu cũ đổi mới cho iPhone không bạn?",
-    "Oppo Reno 11 có còn màu bạc không nhỉ?",
-    "Giá hiện tại của Vivo V30 Pro là bao nhiêu?",
-    "Máy Pixel 8 Pro có còn hàng chính hãng không bạn?",
-    "Mình muốn tìm điện thoại chụp hình đẹp, bạn gợi ý giúp nhé?",
-    "iPhone 13 mini còn không, mình thích loại nhỏ gọn.",
-    "Cửa hàng có bán kèm phụ kiện khi mua điện thoại không?",
-    "Samsung S23 có bản 512GB không bạn?",
-    "Hiện có khuyến mãi trả góp 0% cho iPhone 14 không?",
-    "Thời gian giao hàng nếu đặt online là bao lâu?",
-    "Mình muốn so sánh camera giữa iPhone 15 và Pixel 8 Pro.",
-    "Cửa hàng có chính sách đổi trả trong bao nhiêu ngày?",
-    "Máy iPhone 12 Pro Max hiện giảm bao nhiêu phần trăm?",
-    "Oppo Reno 8 có hỗ trợ 5G không bạn?",
-    "Bạn có thể cho biết iPhone SE 2022 hiện còn màu đỏ không?",
-    "Mình đang cần điện thoại quay video tốt, bạn có gợi ý nào không?",
-    "Huawei P60 Pro còn hàng chính hãng không?",
-    "Có ưu đãi gì khi mua 2 máy cùng lúc không?",
-    "Asus ROG Phone 8 hiện giá bao nhiêu vậy bạn?",
-    "Cửa hàng có hỗ trợ trả góp qua thẻ tín dụng không?",
-    "Điện thoại nào chụp đêm tốt nhất hiện nay vậy?",
-    "Còn màu xanh cho Galaxy S24 Plus không?",
-    "Mình muốn biết dung lượng pin của iPhone 14 Pro Max.",
-    "Cửa hàng có chính sách bảo hành chính hãng hay bảo hành tại chỗ?",
-    "Mình muốn mua điện thoại chơi game tốt, bạn gợi ý giúp với.",
-    "Có tặng kèm ốp lưng khi mua iPhone không vậy?",
-    "Realme 12 Pro có bản RAM 12GB không?",
-    "Thời gian bảo hành pin là bao lâu?",
-    "Cửa hàng có bán hàng xách tay không hay chỉ chính hãng?",
-    "Giá của Samsung Z Fold 6 hiện là bao nhiêu?",
-    "Mình thấy nhiều nơi giảm giá, bên bạn có match giá không?",
-    "Oppo Reno 11 có camera bao nhiêu megapixel?",
-    "Mình muốn biết điện thoại nào pin khỏe dưới 10 triệu.",
-    "iPhone 15 Pro Max có hỗ trợ 2 SIM vật lý không?",
-    "Cửa hàng có ship ra Hà Nội không vậy?",
-    "Nếu mua hôm nay có được giảm thêm không bạn?",
-    "Samsung A35 có bản màu hồng không?",
-    "Bạn cho hỏi iPhone 13 có hàng mới 100% hay máy trưng bày?",
-    "Tôi cần mua điện thoại chụp hình đẹp cho mẹ, nên chọn loại nào?",
-    "Hiện có combo quà tặng khi mua điện thoại không bạn?",
-    "Điện thoại nào chơi Liên Quân mượt mà nhất hiện nay?",
-    "Xiaomi Redmi Note 13 Pro có hỗ trợ sạc nhanh bao nhiêu watt?",
-    "Bạn có thể báo giá iPhone 14 Pro Max bản 256GB giúp tôi không?",
-    "Cửa hàng có chính sách bảo hành rơi vỡ không?",
-    "Hiện tại bên bạn có chương trình đổi máy cũ lấy máy mới không?",
-    "iPhone 15 Pro có kháng nước tốt không bạn?",
-    "Samsung S23 FE có sẵn hàng tại cửa hàng chưa?",
-    "Nếu mua online có được khuyến mãi như đến trực tiếp không?",
-    "Cửa hàng có bán điện thoại cũ không?",
-    "Mình đang tìm điện thoại nhỏ gọn dễ cầm, bạn tư vấn giúp nhé.",
-    "Có hỗ trợ trả góp qua MoMo không bạn?",
-    "Google Pixel 8 Pro còn hàng xách tay không?",
-    "Giá hiện tại của Oppo Find X6 Pro là bao nhiêu?",
-    "Mình muốn hỏi sự khác biệt giữa iPhone 13 và iPhone 13 Pro.",
-    "Cửa hàng có giao hàng tận nơi không vậy?",
-    "Mình thích điện thoại selfie đẹp, bạn đề xuất giúp với.",
-    "Nếu đặt cọc thì giữ máy trong bao lâu vậy?",
-    "Có tặng voucher khi mua điện thoại không?",
-    "Samsung S22 hiện có giảm giá không bạn?",
-    "Mình muốn biết máy nào đang hot nhất hiện nay.",
-    "iPhone 12 mini còn được sản xuất không bạn?",
-    "Nếu lỗi phần mềm thì bảo hành như thế nào?",
-    "Oppo Reno 10 có dùng được sạc của Reno 8 không?",
-    "Bạn có thể báo giá iPhone 15 thường bản 128GB?",
-    "Máy có hỗ trợ eSIM không vậy?",
-    "Cửa hàng có bán iPhone Lock không?",
-    "Mình đang tìm điện thoại pin khỏe, màn đẹp, giá tầm 15 triệu.",
-    "Bạn có thể gợi ý vài mẫu điện thoại cho người lớn tuổi dùng dễ không?",
-    "Nếu mua nhiều máy có được chiết khấu không?",
-    "Cửa hàng có hỗ trợ giao hàng trong ngày không?",
-    "Mình muốn biết thời gian đổi trả miễn phí là bao nhiêu ngày.",
-    "Điện thoại nào đang có chương trình giảm giá mạnh nhất?",
-    "Bạn có thể cho tôi biết màu sắc của Galaxy S24 Ultra hiện có?",
-    "Tôi đang muốn mua máy cho con học online, nên chọn loại nào?",
-    "iPhone 14 Pro có chống trầy màn hình không?",
-    "Cửa hàng có dịch vụ dán cường lực miễn phí không?",
-    "Samsung A55 có bản 256GB chưa?",
-    "Nếu máy lỗi trong 1 tháng đầu có được đổi mới không?",
-    "Cửa hàng có hỗ trợ cài đặt máy miễn phí không?",
-    "Điện thoại nào chụp hình đẹp mà giá tầm trung nhỉ?",
-    "Realme GT Neo 6 có hỗ trợ sạc không dây không?",
-    "Tôi đang tìm điện thoại dùng chip Snapdragon, bạn có gợi ý nào không?",
-    "Bạn có bán iPhone 13 màu hồng không?",
-    "Có gói bảo hành mở rộng cho iPhone không vậy?",
-    "Cửa hàng có nhận đặt trước iPhone mới ra không?",
-    "Mình muốn biết giá niêm yết và giá khuyến mãi khác nhau bao nhiêu."
-]
 chitchatSample = [
+    "Nhắc lại tên tôi",
+    "Nhắc lại tên tôi 3 lần",
+    "Giá vàng hôm nay bao nhiêu ta?",
+    "Không biết giá vàng hôm nay sao rồi",
+    "Giá vàng hôm nay",
+    "Giá xăng tăng hay giảm?",
     "Chào bạn, hôm nay khỏe không?",
     "Hi, dạo này bạn bận không?",
     "Trời hôm nay mát thật ha!",

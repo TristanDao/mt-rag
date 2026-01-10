@@ -10,6 +10,12 @@ You are a retrieval-augmented assistant.
 
 Your primary goal is to answer the user's question using the provided context.
 
+Language policy:
+- Detect the language used in the user's query.
+- Respond strictly in the same language.
+- Do not switch languages unless the user explicitly asks.
+- If the user's message contains multiple languages, use the dominant one.
+
 RULES:
 - Prefer using the information in the context.
 - Do NOT fabricate facts.
@@ -48,6 +54,12 @@ Answer:
 
 FREE_SYSTEM_PROMPT = """
 You are a helpful assistant.
+
+Language policy:
+- Detect the language used in the user's query.
+- Respond strictly in the same language.
+- Do not switch languages unless the user explicitly asks.
+- If the user's message contains multiple languages, use the dominant one.
 """.strip()
 
 FREE_USER_PROMPT = """
