@@ -1,147 +1,124 @@
-✅ 1. Tạo môi trường Python 3.10 sạch
-1.1. Tạo venv mới
+# MT-RAG Evaluation Pipeline (Windows Compatible)
+
+Hướng dẫn cài đặt và chạy đánh giá RAG pipeline trên môi trường Windows. Dự án này được tối ưu hóa để chạy mà không cần các thư viện không tương thích với Windows như `flash-attn` hay `bitsandbytes`.
+
+## 📋 Mục lục
+- [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
+- [Cài đặt](#cài-đặt)
+- [Sử dụng](#sử-dụng)
+  - [1. Tạo Predictions](#1-tạo-predictions)
+  - [2. Chạy Đánh giá (Evaluation)](#2-chạy-đánh-giá-evaluation)
+- [Cấu trúc dữ liệu](#cấu-trúc-dữ-liệu)
+- [Xử lý lỗi thường gặp](#xử-lý-lỗi-thường-gặp)
+
+---
+
+## 💻 Yêu cầu hệ thống
+- **OS**: Windows 10/11
+- **Python**: 3.10 (Khuyến nghị 64-bit)
+- **API**: Azure OpenAI hoặc OpenAI Key (để đánh giá)
+
+---
+
+## 🛠 Cài đặt
+
+### 1. Tạo môi trường ảo
+Mở PowerShell và chạy các lệnh sau để khởi tạo môi trường Python sạch:
+
+```powershell
+# Tạo venv với Python 3.10
 py -3.10 -m venv venv
 
-1.2. Kích hoạt
+# Kích hoạt môi trường (Windows)
 .\venv\Scripts\activate
+```
 
-✅ 2. Cài đặt các package tương thích Windows
+### 2. Cài đặt dependencies
+Cài đặt các thư viện tương thích với Windows từ file `requirements_win.txt`:
 
-Vì flash-attn + bitsandbytes KHÔNG chạy trên Windows → phải dùng bản requirements Win-safe.
+```powershell
+pip install -r requirements_win.txt
+```
 
-Tạo file:
+> **Lưu ý**: File `requirements_win.txt` đã loại bỏ các thư viện chỉ chạy trên Linux/CUDA như `flash-attn`, `bitsandbytes`, `pytrec_eval` (bản gốc) để tránh lỗi build trên Windows.
 
-scripts/evaluation/requirements_win.txt
-numpy==1.26.4
-pandas
-certifi
-tqdm
-beautifulsoup4
-lxml
-evaluate==0.4.3
-bert_score
-rouge-score
-protobuf==5.29.3
-ragas==0.1.9
-langchain==0.1.20
-langchain-community==0.2.6
-pydantic==2.11.7
+---
 
-Cài đặt
-pip install -r scripts/evaluation/requirements_win.txt
+## 🚀 Sử dụng
 
+### 1. Tạo Predictions
+Sử dụng script `generate_with_rag.py` để sinh câu trả lời từ RAG model của bạn.
 
-✔ Không có bitsandbytes
-✔ Không có flash-attn
-✔ Không có pytrec_eval
-✔ Tương thích Python 3.10
-✔ Tương thích Windows
-
-✅ 3. Tạo prediction file từ mô hình RAG của bạn
-
-Bạn đã chạy được:
-
+```powershell
 python scripts/evaluation/generate_with_rag.py `
---input C:\Users\Admin\Desktop\code\Final\mt-rag\mt-rag-benchmark-main\human\generation_tasks\RAG.jsonl ` 
---output predictions\clapnq_test.jsonl `
---collection clapnq `
---limit 10
+  --input "C:\Users\Admin\Desktop\code\Final\mt-rag\mt-rag-benchmark-main\human\generation_tasks\RAG.jsonl" `
+  --output "predictions\clapnq_test.jsonl" `
+  --collection clapnq `
+  --limit 10
+```
 
+### 2. Chạy Đánh giá (Evaluation)
+Sử dụng **Azure OpenAI** (hoặc OpenAI) để chấm điểm kết quả. 
 
+> ⚠️ **Quan trọng**: Trên PowerShell, sử dụng dấu backtick (`` ` ``) để xuống dòng.
 
-File output đúng chuẩn phải có format như:
-
-{
-  "task_id": "xxx",
-  "input": [...],
-  "targets": [...],
-  "contexts": [...],
-  "predictions": [...]
-}
-
-
-Nếu pipeline của bạn không sinh "contexts" hoặc "targets" → phải bổ sung trong generate_with_rag.py.
-
-🔧 4. Chọn chế độ đánh giá: OpenAI / Azure (khuyên dùng)
-Vì bạn đang dùng Windows → KHÔNG dùng local HuggingFace model để evaluate.
-
-Thay thế:
-
---provider openai
-
-✅ 5. Chạy đánh giá bằng Azure OpenAI
-⚠ PowerShell KHÔNG dùng dấu \ để xuống dòng
-
-Bạn phải dùng backtick (`)
-
-Ví dụ:
-
+```powershell
 python scripts/evaluation/run_generation_eval.py `
-  -i predictions\clapnq_test.jsonl `
-  -o outputs\rag_eval_output.jsonl `
-  -e scripts/evaluation/config.yaml `
+  -i "predictions\clapnq_test.jsonl" `
+  -o "outputs\rag_eval_output.jsonl" `
+  -e "scripts/evaluation/config.yaml" `
   --provider openai `
-  --openai_key "KEY_CUA_BAN" `
-  --azure_host "https://25210008-3958-resource.cognitiveservices.azure.com"
+  --openai_key "YOUR_OPENAI_API_KEY" `
+  --azure_host "https://YOUR_RESOURCE_NAME.openai.azure.com"
+```
 
+**Quy trình đánh giá bao gồm:**
+1.  **Algorithmic**: Tính điểm BLEU, ROUGE, BERTScore.
+2.  **Ragas Faithfulness**: Kiểm tra độ trung thực (nếu dùng OpenAI).
+3.  **IDK Judge**: Kiểm tra mô hình có biết từ chối khi không có thông tin hay không (dùng `gpt-4o-mini`).
+4.  **RadBench Judge**: Đánh giá chất lượng câu trả lời tổng thể.
 
-⚠ LƯU Ý BẢO MẬT
+---
 
-🔥 Không bao giờ paste API key lên Internet. Hãy tạo key mới ngay!
+## 📂 Cấu trúc dữ liệu
 
-✅ 6. Khi chạy, sẽ diễn ra các bước sau
-6.1. Algorithmic evaluation
+File output (`predictions\*.jsonl`) phải tuân thủ định dạng JSONL sau để script đánh giá hoạt động chính xác:
 
-– BLEU/ROUGE/BERTScore
-– Ragas Faithfulness (nếu dùng OpenAI)
-
-6.2. IDK judge
-
-– Dùng gpt-4o-mini để đánh giá "biết/không biết".
-
-6.3. RadBench judge
-
-– Đánh giá độ phù hợp câu trả lời.
-
-6.4. Xuất file kết quả
-
-→ outputs/rag_eval_output.jsonl
-
-✅ 7. Các lỗi phổ biến và cách xử lý
-Lỗi	Nguyên nhân	Cách sửa
-KeyError: 'targets'	File prediction thiếu targets	Sửa generate_with_rag.py để sinh targets
-KeyError: 'contexts'	Prediction không có ngữ cảnh	Thêm list context vào file
-PackageNotFoundError: bitsandbytes	HF model muốn load 4bit	Không dùng HF model, dùng provider=openai
-Missing expression after unary operator --	PowerShell lỗi xuống dòng	Dùng backtick thay vì`
-numpy 1.26.4 build failed	Bạn đang dùng Python 32-bit	Cần Python 3.10 64-bit
-🔥 8. Mẫu prediction đúng chuẩn (để benchmark hoạt động)
+```json
 {
-  "task_id": "abc123<::>1",
+  "task_id": "unique_id_123",
   "input": [
     {
       "speaker": "user",
-      "text": "where do the arizona cardinals play this week"
+      "text": "Câu hỏi của người dùng?"
     }
   ],
   "targets": [
     {
       "speaker": "agent",
-      "text": "I'm sorry, but I don't have the answer to your question."
+      "text": "Câu trả lời mẫu (Gold standard)."
     }
   ],
-  "contexts": ["<your retrieved chunk 1>", "<chunk 2>"],
+  "contexts": [
+    "Đoạn văn bản retrieved 1...",
+    "Đoạn văn bản retrieved 2..."
+  ],
   "predictions": [
     {
-      "text": "Xin chào, tôi không có thông tin về lịch thi đấu…"
+      "text": "Câu trả lời do model sinh ra..."
     }
   ]
 }
+```
 
-🎉 9. Tóm tắt pipeline chuẩn cho Windows
-Bước 1: Python 3.10 64-bit
-Bước 2: Venv sạch
-Bước 3: Cài requirements_win.txt
-Bước 4: Sinh predictions.jsonl
-Bước 5: Chạy benchmark bằng Azure OpenAI
+---
 
-🔥 Không dùng bitsandbytes, flash-attn, HF local model trên Windows.
+## ❓ Xử lý lỗi thường gặp
+
+| Lỗi | Nguyên nhân | Cách khắc phục |
+| :--- | :--- | :--- |
+| `KeyError: 'targets'` | File prediction thiếu trường `targets`. | Cập nhật `generate_with_rag.py` để copy `targets` từ input sang output. |
+| `KeyError: 'contexts'` | Prediction thiếu ngữ cảnh tìm kiếm. | Đảm bảo pipeline RAG ghi lại các văn bản đã retrieve vào trường `contexts`. |
+| `PackageNotFoundError: bitsandbytes` | Cố gắng tải model 4-bit/8-bit của HF. | Trên Windows, không dùng `load_in_4bit=True`. Thay vào đó dùng model full precision hoặc API. |
+| `Missing expression after unary operator --` | Lỗi cú pháp PowerShell. | Thay thế dấu `\` bằng dấu backtick (`` ` ``) khi xuống dòng lệnh dài. |
+| `numpy build failed` | Xung đột phiên bản hoặc Python 32-bit. | Đảm bảo dùng Python 3.10 **64-bit** và `numpy==1.26.4`. |
