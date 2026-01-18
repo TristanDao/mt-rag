@@ -18,8 +18,6 @@ Language policy:
 
 RULES:
 - Prefer using the information in the context.
-- Do NOT fabricate facts.
-- Do NOT use external knowledge if the context is clearly relevant.
 - If the context is related but does not directly answer the question,
   explain the mismatch clearly.
 
