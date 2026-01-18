@@ -1,6 +1,3 @@
-# ============================================================
-#   VECTOR DATABASE LAYER — CLEAN VERSION (NO SSL ERRORS)
-# ============================================================
 
 # from pymongo import MongoClient
 # import certifi
@@ -61,8 +58,8 @@ class VectorDatabase:
         # QDRANT
         # ---------------------------------------------------------
         elif self.db_type == "qdrant":
-            url = os.getenv("QDRANT_URL", "http://localhost:6333")
-            key = os.getenv("QDRANT_KEY", None)
+            url = "https://9c32789f-97a7-4deb-a757-59741a6d8505.us-east4-0.gcp.cloud.qdrant.io:6333"
+            key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.lTDDDPIS91qYb-piBzkefXXRIfSVfonW7TIkqj6z8do"
 
             print(f"[VectorDB] Using Qdrant: {url}")
 
@@ -234,30 +231,27 @@ class VectorDatabase:
                 
                 limit_mult = 1 # fetch more to fuse
                 
-                dense_hits = self.client.search(
+                dense_hits = self.client.query_points(
                     collection_name=collection_name,
-                    query_vector=models.NamedVector(
-                        name="default",
-                        vector=embedding_vector
-                    ),
+                    query= embedding_vector,
+                    using="default",
                     limit=top_k * limit_mult,
-                    with_payload=True
-                )
+                    with_payload=True,
+                ).points
                 
                 sparse_struct = models.SparseVector(
                     indices=sparse_vector["indices"],
                     values=sparse_vector["values"]
                 )
                 
-                sparse_hits = self.client.search(
+                sparse_hits = self.client.query_points(
                     collection_name=collection_name,
-                    query_vector=models.NamedSparseVector(
-                        name="bm25",
-                        vector=sparse_struct
-                    ),
+                    query=sparse_struct,
+                    using="bm25",
                     limit=top_k * limit_mult,
-                    with_payload=True
-                )
+                    with_payload=True,
+                ).points
+
                 
                 # RRF FUSION
                 def rrf_score(rank, k=60):
@@ -344,4 +338,3 @@ class VectorDatabase:
             return response.data
 
         raise ValueError("Unsupported DB type.")
-

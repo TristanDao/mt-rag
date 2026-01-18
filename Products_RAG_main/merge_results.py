@@ -1,38 +1,86 @@
-import glob
 import os
+import sys
+import glob
+from pathlib import Path
 
-def merge_files():
-    data_dir = "Products_RAG_main/data_retrieval"
-    outfile = os.path.join(data_dir, "RAG_all_top30.jsonl")
+# Add parent directory to sys.path to allow imports from Products_RAG_main package
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from Products_RAG_main.format_input import create_retrieval_input
+import Products_RAG_main.config as config
+
+def run_pipeline():
+    # 1. Configuration
+    collections = ["clapnq", "govt", "fiqa", "cloud"]
     
-    # Get all matching files
-    files = glob.glob(os.path.join(data_dir, "RAG_*_top30.jsonl"))
+    # Define paths
+    base_dir = Path(__file__).parent.parent
+    retrieval_tasks_dir = base_dir / "mt-rag-benchmark-main" / "human" / "retrieval_tasks"
+    data_retrieval_dir = base_dir / "Products_RAG_main" / "data_retrieval"
     
-    # Filter out the output file itself to avoid self-inclusion loop
-    # Normalize paths for comparison
-    files_to_merge = []
-    outfile_abs = os.path.abspath(outfile)
+    # Create output dir if not exists
+    os.makedirs(data_retrieval_dir, exist_ok=True)
+
+    generated_files = []
     
-    for f in files:
-        if os.path.abspath(f) != outfile_abs:
-            files_to_merge.append(f)
+    print(f"🚀 STARTING AUTO_RETRIEVAL PIPELINE FOR {len(collections)} COLLECTIONS")
+    print(f"   Output Directory: {data_retrieval_dir}")
+    top_k = config.RAG_CONFIG.get("top_k", 10)
+
+    # 2. Run Retrieval Loop
+    for col in collections:
+        print(f"\n{'='*60}")
+        print(f"▶️ PROCESSING: {col.upper()}")
+        print(f"{'='*60}")
+        
+        # Path: mt-rag-benchmark-main/human/retrieval_tasks/{col}/{col}_rewrite.jsonl
+        queries_file = retrieval_tasks_dir / col / f"{col}_rewrite.jsonl"
+        
+        # Output: Products_RAG_main/data_retrieval/RAG_{col}_top10.jsonl
+        output_filename = f"RAG_{col}_top{top_k}.jsonl"
+        output_file = data_retrieval_dir / output_filename
+        
+        if not queries_file.exists():
+            print(f"❌ Query file not found: {queries_file}")
+            continue
             
-    print(f"Found {len(files_to_merge)} files to merge: {[os.path.basename(f) for f in files_to_merge]}")
+        try:
+            create_retrieval_input(
+                queries_file=str(queries_file),
+                output_file=str(output_file),
+                collection_key=col,
+                top_k=top_k
+            )
+            generated_files.append(str(output_file))
+        except Exception as e:
+            print(f"❌ Error processing {col}: {e}")
+
+    # 3. Merge Results
+    print(f"\n{'='*60}")
+    print(f"🔄 MERGING {len(generated_files)} FILES")
+    print(f"{'='*60}")
     
-    with open(outfile, 'w', encoding='utf-8') as fout:
-        for input_file in files_to_merge:
-            print(f"Merging {input_file}...")
-            with open(input_file, 'r', encoding='utf-8') as fin:
-                # Add a newline just in case the file doesn't end with one, 
-                # but better to read content and ensure format.
-                # Since these are JSONL, just simple concatenation works if specific lines are integrity clean.
-                content = fin.read()
-                if content:
-                    fout.write(content)
-                    if not content.endswith('\n'):
-                        fout.write('\n')
+    if not generated_files:
+        print("⚠️ No files generated. Exiting.")
+        return
+
+    merge_output = data_retrieval_dir / f"RAG_all_top{top_k}.jsonl"
+    
+    try:
+        with open(merge_output, 'w', encoding='utf-8') as outfile:
+            for fname in generated_files:
+                print(f"   + Adding {os.path.basename(fname)}...")
+                with open(fname, 'r', encoding='utf-8') as infile:
+                    content = infile.read()
+                    outfile.write(content)
+                    if content and not content.endswith('\n'):
+                        outfile.write('\n')
                         
-    print(f"Successfully merged into {outfile}")
+        print(f"\n✅ DONE! Final merged file: {merge_output}")
+        print(f"   Size: {os.path.getsize(merge_output)} bytes")
+        
+    except Exception as e:
+         print(f"❌ Error merging files: {e}")
 
 if __name__ == "__main__":
-    merge_files()
+    run_pipeline()

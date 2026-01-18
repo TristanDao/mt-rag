@@ -8,7 +8,7 @@ import torch
 import os
 from typing import List, Union, Optional, Dict
 from dotenv import load_dotenv
-
+import config 
 load_dotenv()
 
 
@@ -52,11 +52,8 @@ class EmbeddingModel:
         # HUGGINGFACE LOCAL EMBEDDINGS
         # ======================================================
         elif self.provider == "huggingface":
-            self.model_name = (
-                model_name
-                or "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-            )
-
+            self.model_name = config.EMBEDDING_MODEL_CONFIG.get("model_name", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    
             device = "cuda" if torch.cuda.is_available() else "cpu"
             local_model_path = os.path.join("models", os.path.basename(self.model_name))
 
