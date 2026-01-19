@@ -118,7 +118,7 @@ def process_batch_worker(batch_records, embedding_model, sparse_model, vector_db
         texts = [r["combine_text"] for r in batch_records]
         
         # 2. Batch Encode
-        embeddings = embedding_model.encode(texts)
+        embeddings = embedding_model.encode(texts, mode="passage")
         
         # 2.1 Sparse Encode
         sparse_embeddings = []

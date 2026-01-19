@@ -130,13 +130,13 @@ def main():
     for collection_name in collections:
         print("\ncollection_name:", collection_name)
 
-        if collection_name == "mt-rag-clapnq-elser-512-100-20240503":
+        if collection_name == "clapnq":
             qrels_file = os.path.join(script_dir, "../../human/retrieval_tasks/clapnq/qrels/dev.tsv")
-        if collection_name == "mt-rag-govt-elser-512-100-20240611":
+        if collection_name == "govt":
             qrels_file = os.path.join(script_dir, "../../human/retrieval_tasks/govt/qrels/dev.tsv")
-        if collection_name == "mt-rag-fiqa-beir-elser-512-100-20240501":
+        if collection_name == "fiqa":
             qrels_file = os.path.join(script_dir, "../../human/retrieval_tasks/fiqa/qrels/dev.tsv")
-        if collection_name == "mt-rag-ibmcloud-elser-512-100-20240502":
+        if collection_name == "ibmcloud":
             qrels_file = os.path.join(script_dir, "../../human/retrieval_tasks/cloud/qrels/dev.tsv")
             
         qrels = load_qrels(qrels_file)

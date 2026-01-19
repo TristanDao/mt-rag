@@ -59,7 +59,7 @@ def retrieve(query_text: str, collection_name: str) -> List[Dict[str, Any]]:
 
     
     # 1. Vector Search
-    query_vector = _embedding_model.encode_single(query_text)
+    query_vector = _embedding_model.encode_query(query_text)
     
     sparse_vector = None
     if _sparse_model:

@@ -6,7 +6,7 @@ pandas==2.3.3
 protobuf==6.33.0
 pymongo==4.15.3
 python-dotenv==1.2.1
-qdrant_client==1.15.1
+qdrant_client==1.16.2
 fastembed==0.7.4
 
 Requests==2.32.5
