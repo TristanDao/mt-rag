@@ -90,7 +90,8 @@ class EmbeddingModel:
     def encode(
         self,
         texts: Union[str, List[str]],
-        mode: str = "passage"  # default = document embedding
+        mode: str = "passage",
+        **kwargs
     ) -> List[List[float]]:
 
         if isinstance(texts, str):
@@ -108,7 +109,8 @@ class EmbeddingModel:
             return self.model.encode(
                 texts,
                 convert_to_tensor=False,
-                normalize_embeddings=True
+                normalize_embeddings=True,
+                **kwargs
             ).tolist()
 
         else:
