@@ -73,14 +73,17 @@ class EmbeddingModel:
         if "e5" not in name:
             return text
 
-        # E5-instruct
-        if "instruct" in name:
+        # E5-instruct or Qwen (Instruction Aware)
+        if "instruct" in name or "qwen" in name:
             if mode == "query":
-                return f"query: {text}"
+                # Default retrieval instruction
+                task_description = "Given a web search query, retrieve relevant passages that answer the query"
+                return f"Instruct: {task_description}\nQuery: {text}"
             else:
-                return f"passage: {text}"
+                # Passage needs NO prefix for E5-instruct
+                return text
 
-        # E5 base / large
+        # E5 base / large (non-instruct)
         prefix = "query:" if mode == "query" else "passage:"
         return f"{prefix} {text}"
 

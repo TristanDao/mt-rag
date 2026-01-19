@@ -40,7 +40,7 @@ EMBEDDING_MODEL_CONFIG = {
     "provider": "huggingface",
     "model_name": "intfloat/multilingual-e5-large-instruct",  # Thay đổi model của bạn
     "device": AUTO_DEVICE,  # Tự động: "cuda" nếu có GPU, "cpu" nếu không
-    "batch_size": 32,
+    "batch_size": 1024,
     "max_length": 512
 }
 

@@ -109,29 +109,35 @@ import concurrent.futures
 def process_batch_worker(batch_records, embedding_model, sparse_model, vector_db, collection_name, batch_num, file_path):
     """
     Worker function to process a single batch:
-    1. Encode texts
+    1. Encode texts (GPU-bound)
     2. Format payloads
-    3. Insert to Vector DB
+    3. Insert to Vector DB (IO-bound)
     """
     try:
         # 1. Prepare texts
         texts = [r["combine_text"] for r in batch_records]
-        
-        # 2. Batch Encode
-        embeddings = embedding_model.encode(texts, mode="passage")
-        
-        # 2.1 Sparse Encode
-        sparse_embeddings = []
+
+        # 2. Dense Encode (🔥 GPU optimized)
+        import torch
+        with torch.no_grad():
+            embeddings = embedding_model.encode(
+                texts,
+                mode="passage",
+                batch_size=len(texts),   # ÉP 1 batch lớn → full GPU
+                convert_to_numpy=True,
+                show_progress_bar=False
+            )
+
+        # 2.1 Sparse Encode (CPU)
         if sparse_model:
             sparse_embeddings = sparse_model.encode(texts)
         else:
-            # fill None
             sparse_embeddings = [None] * len(texts)
-        
+
         # 3. Construct Data Payload
         batch_data = []
         for j, record in enumerate(batch_records):
-            batch_data.append({
+            payload = {
                 "id": record["uuid"],
                 "embedding": embeddings[j],
                 "metadata": {
@@ -141,13 +147,14 @@ def process_batch_worker(batch_records, embedding_model, sparse_model, vector_db
                     "index": record.get("original_index", -1),
                     "source": os.path.basename(file_path)
                 }
-            })
-            
-            # Add sparse if available
-            if sparse_embeddings[j]:
-                batch_data[-1]["sparse_embedding"] = sparse_embeddings[j]
-            
-        # 4. Insert Batch
+            }
+
+            if sparse_embeddings[j] is not None:
+                payload["sparse_embedding"] = sparse_embeddings[j]
+
+            batch_data.append(payload)
+
+        # 4. Insert Batch (IO)
         ok, err = insert_batch(vector_db, batch_data, collection_name)
         if ok:
             return True, len(batch_data), batch_num
@@ -279,8 +286,8 @@ def main():
     EMBEDDING_PROVIDER = config.EMBEDDING_MODEL_CONFIG.get("provider", "huggingface") 
     
     # Configurable performance params
-    BATCH_SIZE = 256
-    MAX_WORKERS = 4 # Number of parallel threads
+    BATCH_SIZE = 1024
+    MAX_WORKERS = 1 # Number of parallel threads
 
     print("\n==============================")
     print(f"🚀 START INSERTING COLLECTIONS (Parallel)")
