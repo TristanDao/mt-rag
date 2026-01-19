@@ -176,17 +176,16 @@ def main():
             for r in db_results:
                 payload = r.get("payload", {})
                 contexts.append({
-                    "doc_id": r.get("id"), # Point ID
+                    "document_id": r.get("id"), # Point ID
                     "original_id": payload.get("doc_id"), # Original ID from corpus
                     "score": r.get("score") if not r.get("final_score") else r.get("final_score"), # Handle rerank score
                     "text": payload.get("text", "")
                 })
             
-            output_obj = {
-                "task_id": task_id,
-                "query": query_text,
-                "contexts": contexts
-            }
+            # Prepare output object: copy original task and update with results
+            output_obj = task.copy()
+            output_obj["query"] = query_text
+            output_obj["contexts"] = contexts
             
             # Write line immediately
             out_f.write(json.dumps(output_obj, ensure_ascii=False) + "\n")
