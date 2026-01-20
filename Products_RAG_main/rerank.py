@@ -7,6 +7,7 @@ import os
 import torch
 from typing import List, Dict, Optional
 from sentence_transformers import CrossEncoder
+import config
 
 def get_device(device: Optional[str] = None) -> str:
     """Tự động detect device."""
@@ -22,17 +23,20 @@ class Reranker:
     def __init__(
         self,
         model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
-        device: Optional[str] = None
+        device: Optional[str] = None,
+        batch_size: Optional[int] = None,
     ):
         """
         Args:
             model_name: Tên cross-encoder model
             device: "cuda" hoặc "cpu" (None = auto-detect)
+            batch_size: Kích thước batch (None = auto-detect)
         """
         self.device = get_device(device)
-        self.model_name = model_name
+        self.model_name = config.RERANK_CONFIG.get("model_name", model_name)
+        self.batch_size = config.RERANK_CONFIG.get("batch_size", batch_size)
         
-        print(f"[Rerank] Initializing Reranker: {model_name} ({self.device})")
+        print(f"[Rerank] Initializing Reranker: {self.model_name} ({self.device})")
         
         # Check local path or download
         local_model_path = os.path.join("models", os.path.basename(self.model_name))
@@ -43,7 +47,7 @@ class Reranker:
                 self.model = CrossEncoder(local_model_path, device=self.device)
             else:
                 print(f"[Rerank] Downloading model from Hugging Face: {self.model_name}")
-                self.model = CrossEncoder(model_name, device=self.device)
+                self.model = CrossEncoder(self.model_name, device=self.device)
                 
                 # Save to local
                 os.makedirs("models", exist_ok=True)
@@ -107,7 +111,7 @@ class Reranker:
 
         # Predict scores
         # CrossEncoder returns array of scores (logits or probabilities)
-        rerank_scores = self.model.predict(pairs)
+        rerank_scores = self.model.predict(pairs, batch_size=self.batch_size, device=self.device)
         
         # Update scores in documents
         # Note: We only update documents that had text and were included in pairs
